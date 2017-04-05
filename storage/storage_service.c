@@ -1574,31 +1574,32 @@ int storage_service_init()
 	struct storage_nio_thread_data *pDataEnd;
 	pthread_t tid;
 	pthread_attr_t thread_attr;
-
+	//初始化storage任务线程锁
 	if ((result=init_pthread_lock(&g_storage_thread_lock)) != 0)
 	{
 		return result;
-	}
-
+	}	
+	//初始化路径索引线程锁
 	if ((result=init_pthread_lock(&path_index_thread_lock)) != 0)
 	{
 		return result;
 	}
-
+	//初始化状态线程锁
 	if ((result=init_pthread_lock(&stat_count_thread_lock)) != 0)
 	{
 		return result;
 	}
-
+	//初始化线程堆栈的大小为512K
 	if ((result=init_pthread_attr(&thread_attr, g_thread_stack_size)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
 			"init_pthread_attr fail, program exit!", __LINE__);
 		return result;
 	}
-
+	//初始化最大连接数 g_max_connections是全局变量，是从配置文件max_connections项中读取的
     init_connections = g_max_connections < ALLOC_CONNECTIONS_ONCE ?
         g_max_connections : ALLOC_CONNECTIONS_ONCE;
+	//初始化释放队列
 	if ((result=free_queue_init_ex(g_max_connections, init_connections,
                     ALLOC_CONNECTIONS_ONCE, g_buff_size,
                     g_buff_size, sizeof(StorageClientInfo))) != 0)
@@ -1607,6 +1608,7 @@ int storage_service_init()
 	}
 
 	bytes = sizeof(struct storage_nio_thread_data) * g_work_threads;
+	//分配4(默认初始化)个nio_thread_data结构内存
 	g_nio_thread_data = (struct storage_nio_thread_data *)malloc(bytes);
 	if (g_nio_thread_data == NULL)
 	{
@@ -1618,7 +1620,9 @@ int storage_service_init()
 	memset(g_nio_thread_data, 0, bytes);
 
 	g_storage_thread_count = 0;
+	//获取nio_thread_data结构数组的尾指针
 	pDataEnd = g_nio_thread_data + g_work_threads;
+	//遍历nio_thread_data数组,创建io工作线程
 	for (pThreadData=g_nio_thread_data; pThreadData<pDataEnd; pThreadData++)
 	{
 		if (ioevent_init(&pThreadData->thread_data.ev_puller,
@@ -1641,7 +1645,7 @@ int storage_service_init()
 				__LINE__, result, STRERROR(result));
 			return result;
 		}
-
+		//创建管道，并把两个fd保存到storage_nio_thread_data的pipe_fds中
 		if (pipe(pThreadData->thread_data.pipe_fds) != 0)
 		{
 			result = errno != 0 ? errno : EPERM;
@@ -1651,7 +1655,7 @@ int storage_service_init()
 				__LINE__, result, STRERROR(result));
 			break;
 		}
-
+		//把管道的可读fd设置为非阻塞的
 #if defined(OS_LINUX)
 		if ((result=fd_add_flags(pThreadData->thread_data.pipe_fds[0], \
 				O_NONBLOCK | O_NOATIME)) != 0)
@@ -1665,7 +1669,7 @@ int storage_service_init()
 			break;
 		}
 #endif
-
+		//创建工作线程
 		if ((result=pthread_create(&tid, &thread_attr, \
 			work_thread_entrance, pThreadData)) != 0)
 		{
@@ -1678,6 +1682,7 @@ int storage_service_init()
 		}
 		else
 		{
+			//创建失败
 			if ((result=pthread_mutex_lock(&g_storage_thread_lock)) != 0)
 			{
 				logError("file: "__FILE__", line: %d, " \
@@ -1695,7 +1700,7 @@ int storage_service_init()
 			}
 		}
 	}
-
+	//销毁线程属性值
 	pthread_attr_destroy(&thread_attr);
 
 	last_stat_change_count = g_stat_change_count;
