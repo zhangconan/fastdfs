@@ -1933,8 +1933,10 @@ static void *work_thread_entrance(void* arg)
 {
 	int result;
 	struct storage_nio_thread_data *pThreadData;
-
+	//pThreadData指向全局变量g_nio_thread_data的每一个storage_nio_thread_data结构的起始地址
+	//共有g_work_threads个工作线程，所以有这么多个storage_nio_thread_data结构
 	pThreadData = (struct storage_nio_thread_data *)arg;
+	//如果要检查重复文件
 	if (g_check_file_duplicate)
 	{
 		if ((result=fdht_copy_group_array(&(pThreadData->group_array),\
@@ -1960,7 +1962,7 @@ static void *work_thread_entrance(void* arg)
 
 		fdht_free_group_array(&(pThreadData->group_array));
 	}
-
+	//要对全局变量操作了，加线程锁
 	if ((result=pthread_mutex_lock(&g_storage_thread_lock)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
@@ -1968,7 +1970,9 @@ static void *work_thread_entrance(void* arg)
 			"errno: %d, error info: %s", \
 			__LINE__, result, STRERROR(result));
 	}
+	//storage线程个数减一
 	g_storage_thread_count--;
+	//解锁
 	if ((result=pthread_mutex_unlock(&g_storage_thread_lock)) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
@@ -6797,8 +6801,9 @@ static int storage_server_download_file(struct fast_task_info *pTask)
 
 	pClientInfo = (StorageClientInfo *)pTask->arg;
 	pFileContext =  &(pClientInfo->file_context);
-
+	//减去trackerheader的长度，得到数据包长度
 	nInPackLen = pClientInfo->total_length - sizeof(TrackerHeader);
+	//包中实际的数据长度错误
 	if (nInPackLen <= 16 + FDFS_GROUP_NAME_MAX_LEN)
 	{
 		logError("file: "__FILE__", line: %d, " \
@@ -6810,7 +6815,7 @@ static int storage_server_download_file(struct fast_task_info *pTask)
 			nInPackLen, 16 + FDFS_GROUP_NAME_MAX_LEN);
 		return EINVAL;
 	}
-
+	//数据包长度错误
 	if (nInPackLen >= pTask->size)
 	{
 		logError("file: "__FILE__", line: %d, " \
@@ -6822,13 +6827,15 @@ static int storage_server_download_file(struct fast_task_info *pTask)
 			nInPackLen, pTask->size);
 		return EINVAL;
 	}
-
+	//获得实际数据的起始地址
 	p = pTask->data + sizeof(TrackerHeader);
-
+	//得到文件偏移量
 	file_offset = buff2long(p);
 	p += FDFS_PROTO_PKG_LEN_SIZE;
+	//下一个字段是下载文件的bytes数
 	download_bytes = buff2long(p);
-	p += FDFS_PROTO_PKG_LEN_SIZE;
+	p += FDFS_PROTO_PKG_LEN_SIZE
+	//若文件偏移量小于0，错误，直接返回
 	if (file_offset < 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
@@ -6837,6 +6844,7 @@ static int storage_server_download_file(struct fast_task_info *pTask)
 			pTask->client_ip, file_offset);
 		return EINVAL;
 	}
+	//若下载的文件大小小于0，错误
 	if (download_bytes < 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
@@ -6845,10 +6853,11 @@ static int storage_server_download_file(struct fast_task_info *pTask)
 			pTask->client_ip, download_bytes);
 		return EINVAL;
 	}
-
+	//下一个字段是组名
 	memcpy(group_name, p, FDFS_GROUP_NAME_MAX_LEN);
 	*(group_name + FDFS_GROUP_NAME_MAX_LEN) = '\0';
 	p += FDFS_GROUP_NAME_MAX_LEN;
+	//和客户端发送的group比较是否相等。若不等说明连接错误，直接返回
 	if (strcmp(group_name, g_group_name) != 0)
 	{
 		logError("file: "__FILE__", line: %d, " \
@@ -6858,19 +6867,21 @@ static int storage_server_download_file(struct fast_task_info *pTask)
 			group_name, g_group_name);
 		return EINVAL;
 	}
-
+	//获取文件名
 	filename = p;
 	filename_len = nInPackLen - (16 + FDFS_GROUP_NAME_MAX_LEN);
 	*(filename + filename_len) = '\0';
-
+	
 	STORAGE_ACCESS_STRCPY_FNAME2LOG(filename, filename_len, \
 			pClientInfo);
-
+	//到此，文件名和下载量都已经知道了
+	//分解文件名，并获取真正的可以直接读取的文件名
 	if ((result=storage_split_filename_ex(filename, \
 		&filename_len, true_filename, &store_path_index)) != 0)
 	{
 		return result;
 	}
+	//检查文件名字符串是否正确
 	if ((result=fdfs_check_data_filename(true_filename, filename_len)) != 0)
 	{
 		return result;
@@ -7062,7 +7073,8 @@ static int storage_write_to_file(struct fast_task_info *pTask, \
 			my_md5_init(&pFileContext->md5_context);
 		}
 	}
-
+	//把任务放到io任务队列中，并发送信号，通知io处理函数并进行处理
+	//io队列接收到通知后，会调用io处理函数进行处理
 	if ((result=storage_dio_queue_push(pTask)) != 0)
 	{
 		return result;
@@ -7931,9 +7943,10 @@ int storage_deal_task(struct fast_task_info *pTask)
 
 	pClientInfo = (StorageClientInfo *)pTask->arg;
 	pHeader = (TrackerHeader *)pTask->data;
-
+	//解析请求命令
 	switch(pHeader->cmd)
 	{
+		//下载文件
 		case STORAGE_PROTO_CMD_DOWNLOAD_FILE:
 			ACCESS_LOG_INIT_FIELDS();
 			result = storage_server_download_file(pTask);
@@ -7941,6 +7954,7 @@ int storage_deal_task(struct fast_task_info *pTask)
 				ACCESS_LOG_ACTION_DOWNLOAD_FILE, \
 				result);
 			break;
+		//获取元数据
 		case STORAGE_PROTO_CMD_GET_METADATA:
 			ACCESS_LOG_INIT_FIELDS();
 			result = storage_server_get_metadata(pTask);
@@ -7948,6 +7962,7 @@ int storage_deal_task(struct fast_task_info *pTask)
 				ACCESS_LOG_ACTION_GET_METADATA, \
 				result);
 			break;
+		//上传文件
 		case STORAGE_PROTO_CMD_UPLOAD_FILE:
 			ACCESS_LOG_INIT_FIELDS();
 			result = storage_upload_file(pTask, false);
@@ -7955,6 +7970,7 @@ int storage_deal_task(struct fast_task_info *pTask)
 				ACCESS_LOG_ACTION_UPLOAD_FILE, \
 				result);
 			break;
+		//上传文件并添加到文件末端
 		case STORAGE_PROTO_CMD_UPLOAD_APPENDER_FILE:
 			ACCESS_LOG_INIT_FIELDS();
 			result = storage_upload_file(pTask, true);
@@ -7969,6 +7985,7 @@ int storage_deal_task(struct fast_task_info *pTask)
 				ACCESS_LOG_ACTION_APPEND_FILE, \
 				result);
 			break;
+		//修改文件
 		case STORAGE_PROTO_CMD_MODIFY_FILE:
 			ACCESS_LOG_INIT_FIELDS();
 			result = storage_modify_file(pTask);
@@ -7976,6 +7993,7 @@ int storage_deal_task(struct fast_task_info *pTask)
 				ACCESS_LOG_ACTION_MODIFY_FILE, \
 				result);
 			break;
+		//截断文件内容
 		case STORAGE_PROTO_CMD_TRUNCATE_FILE:
 			ACCESS_LOG_INIT_FIELDS();
 			result = storage_do_truncate_file(pTask);
@@ -7990,6 +8008,7 @@ int storage_deal_task(struct fast_task_info *pTask)
 				ACCESS_LOG_ACTION_UPLOAD_FILE, \
 				result);
 			break;
+		//删除文件
 		case STORAGE_PROTO_CMD_DELETE_FILE:
 			ACCESS_LOG_INIT_FIELDS();
 			result = storage_server_delete_file(pTask);
@@ -8011,12 +8030,14 @@ int storage_deal_task(struct fast_task_info *pTask)
 				ACCESS_LOG_ACTION_QUERY_FILE, \
 				result);
 			break;
+		//创建连接
 		case STORAGE_PROTO_CMD_CREATE_LINK:
 			result = storage_create_link(pTask);
 			break;
 		case STORAGE_PROTO_CMD_SYNC_CREATE_FILE:
 			result = storage_sync_copy_file(pTask, pHeader->cmd);
 			break;
+		//删除文件同步
 		case STORAGE_PROTO_CMD_SYNC_DELETE_FILE:
 			result = storage_sync_delete_file(pTask);
 			break;

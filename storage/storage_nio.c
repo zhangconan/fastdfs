@@ -131,11 +131,13 @@ void storage_recv_notify_read(int sock, short event, void *arg)
 	int64_t remain_bytes;
 	int bytes;
 	int result;
-
+	//进入死循环，不断处理客户端或tracker的请求
 	while (1)
 	{
+		//从可读管道描述符中读取信息
 		if ((bytes=read(sock, &task_addr, sizeof(task_addr))) < 0)
 		{
+			//出错跳出循环
 			if (!(errno == EAGAIN || errno == EWOULDBLOCK))
 			{
 				logError("file: "__FILE__", line: %d, " \
@@ -147,15 +149,17 @@ void storage_recv_notify_read(int sock, short event, void *arg)
 			break;
 		}
 		else if (bytes == 0)
-		{
+		{	//如果读到的信息长度为0，跳出循环
 			logError("file: "__FILE__", line: %d, " \
 				"call read failed, end of file", __LINE__);
 			break;
 		}
-
+		//管道写入的是一个fast_task_info结构的信息
+		//先把信息格式化一下
 		pTask = (struct fast_task_info *)task_addr;
+		//对应连接的客户端信息
 		pClientInfo = (StorageClientInfo *)pTask->arg;
-
+		//sock已经小于0了，有错误发生，直接返回，结束读取
 		if (pTask->event.fd < 0)  //quit flag
 		{
 			return;
@@ -169,15 +173,21 @@ void storage_recv_notify_read(int sock, short event, void *arg)
 		{
 			pClientInfo->stage &= ~FDFS_STORAGE_STAGE_DIO_THREAD;
 		}
+		//根据客户端的状态进行处理
 		switch (pClientInfo->stage)
 		{
+			//初始化状态，此状态是由在storage_accept_loop函数中和客户端建立tcp连接后，初始化的
 			case FDFS_STORAGE_STAGE_NIO_INIT:
 				result = storage_nio_init(pTask);
 				break;
+			//完成FDFS_STORAGE_STAGE_NIO_INIT这个阶段后，进入接收阶段
 			case FDFS_STORAGE_STAGE_NIO_RECV:
+				//把目前的偏移量设置为0
 				pTask->offset = 0;
+				//接收的总长度是total_length-total_offset总长度减去总偏移量
 				remain_bytes = pClientInfo->total_length - \
 					       pClientInfo->total_offset;
+				//pTask->length是数据长度，为剩余的字节数和pTask->size中的最大数据
 				if (remain_bytes > pTask->size)
 				{
 					pTask->length = pTask->size;
@@ -189,6 +199,7 @@ void storage_recv_notify_read(int sock, short event, void *arg)
 
 				if (set_recv_event(pTask) == 0)
 				{
+					//从pClientInfo->sock中读取数据并处理相应的命令
 					client_sock_read(pTask->event.fd,
 						IOEVENT_READ, pTask);
 				}
@@ -214,7 +225,8 @@ void storage_recv_notify_read(int sock, short event, void *arg)
 		}
 	}
 }
-
+//storage_nio_init函数，该初始化函数主要是把客户端和storage服务端的已建立成功的socket描述符添加到事件监控队列中。
+//用来接收并处理客户端的请求，并设置读写事件处理函数
 static int storage_nio_init(struct fast_task_info *pTask)
 {
 	StorageClientInfo *pClientInfo;
@@ -264,7 +276,7 @@ static void client_sock_read(int sock, short event, void *arg)
 
 		return;
 	}
-
+	//超时事件
 	if (event & IOEVENT_TIMEOUT)
 	{
 		if (pClientInfo->total_offset == 0 && pTask->req_count > 0)
@@ -302,13 +314,13 @@ static void client_sock_read(int sock, short event, void *arg)
 		&pTask->event.timer, g_current_time +
 		g_fdfs_network_timeout);
 	while (1)
-	{
+	{	//若total_length为0，代表此次发送的是头数据
 		if (pClientInfo->total_length == 0) //recv header
-		{
+		{	//若发送的是协议头，接收的字节数为tracker头减去偏移量
 			recv_bytes = sizeof(TrackerHeader) - pTask->offset;
 		}
 		else
-		{
+		{   //接收的是数据，接收长度是length-offset
 			recv_bytes = pTask->length - pTask->offset;
 		}
 
@@ -320,6 +332,7 @@ static void client_sock_read(int sock, short event, void *arg)
 		*/
 
 		bytes = recv(sock, pTask->data + pTask->offset, recv_bytes, 0);
+		//recv的长度小于0，表示有错误发生
 		if (bytes < 0)
 		{
 			if (errno == EAGAIN || errno == EWOULDBLOCK)
@@ -339,7 +352,7 @@ static void client_sock_read(int sock, short event, void *arg)
 
 				task_finish_clean_up(pTask);
 			}
-
+			//接收时发生错误，直接返回，重写初始化
 			return;
 		}
 		else if (bytes == 0)
@@ -352,7 +365,7 @@ static void client_sock_read(int sock, short event, void *arg)
 			task_finish_clean_up(pTask);
 			return;
 		}
-
+		//total_length为0，表示读取到的是数据包头
 		if (pClientInfo->total_length == 0) //header
 		{
 			if (pTask->offset + bytes < sizeof(TrackerHeader))
