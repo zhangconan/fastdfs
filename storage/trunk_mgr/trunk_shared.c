@@ -41,7 +41,7 @@ char **storage_load_paths_from_conf_file_ex(IniContext *pItemContext, \
 	char *pPath;
 	int i;
 
-	*path_count = iniGetIntValue(szSectionName, "store_path_count", 
+	*path_count = iniGetIntValue(szSectionName, "store_path_count",
 					pItemContext, 1);
 	if (*path_count <= 0)
 	{

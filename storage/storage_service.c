@@ -300,7 +300,7 @@ static void storage_log_access_log(struct fast_task_info *pTask, \
 			} \
 		} \
 	} while (0)
-	
+
 
 #define STORAGE_ACCESS_LOG(pTask, action, status) \
 	do \
@@ -525,7 +525,7 @@ static void storage_sync_copy_file_done_callback(struct fast_task_info *pTask, \
 	result = err_no;
 	if (result == 0)
 	{
-		if (pFileContext->op == FDFS_STORAGE_FILE_OP_WRITE) 
+		if (pFileContext->op == FDFS_STORAGE_FILE_OP_WRITE)
 		{
 			if (!(pFileContext->extra_info.upload.file_type & \
 					_FILE_TYPE_TRUNK))
@@ -859,7 +859,7 @@ static int storage_do_delete_meta_file(struct fast_task_info *pTask)
 				memcpy(&key_info_ref, &key_info_sig, \
 						sizeof(FDHTKeyInfo));
 				key_info_ref.obj_id_len = value_len;
-				memcpy(key_info_ref.szObjectId, pValue, 
+				memcpy(key_info_ref.szObjectId, pValue,
 						value_len);
 				key_info_ref.key_len = \
 					sizeof(FDHT_KEY_NAME_REF_COUNT)-1;
@@ -1578,7 +1578,7 @@ int storage_service_init()
 	if ((result=init_pthread_lock(&g_storage_thread_lock)) != 0)
 	{
 		return result;
-	}	
+	}
 	//初始化路径索引线程锁
 	if ((result=init_pthread_lock(&path_index_thread_lock)) != 0)
 	{
@@ -1707,7 +1707,7 @@ int storage_service_init()
 
 	//DO NOT support direct IO !!!
 	//g_extra_open_file_flags = g_disk_rw_direct ? O_DIRECT : 0;
-	
+
 	if (result != 0)
 	{
 		return result;
@@ -1948,7 +1948,7 @@ static void *work_thread_entrance(void* arg)
 			return NULL;
 		}
 	}
-	
+
 	ioevent_loop(&pThreadData->thread_data, storage_recv_notify_read,
 		task_finish_clean_up, &g_continue_flag);
 	ioevent_destroy(&pThreadData->thread_data.ev_puller);
@@ -2055,7 +2055,7 @@ void storage_get_store_path(const char *filename, const int filename_len, \
 		if (++g_dist_write_file_count >= g_file_distribute_rotate_count)
 		{
 			g_dist_write_file_count = 0;
-	
+
 			if ((result=pthread_mutex_lock( \
 					&path_index_thread_lock)) != 0)
 			{
@@ -2150,7 +2150,7 @@ static int storage_gen_filename(StorageClientInfo *pClientInfo, \
 
 	len = sprintf(filename, FDFS_STORAGE_DATA_DIR_FORMAT"/" \
 			FDFS_STORAGE_DATA_DIR_FORMAT"/", \
-			pTrunkInfo->path.sub_path_high, 
+			pTrunkInfo->path.sub_path_high,
 			pTrunkInfo->path.sub_path_low);
 	memcpy(filename+len, encoded, *filename_len);
 	memcpy(filename+len+(*filename_len), szFormattedExt, ext_name_len);
@@ -2214,7 +2214,7 @@ static void storage_format_ext_name(const char *file_ext_name, \
 	}
 	*p = '\0';
 }
- 
+
 static int storage_get_filename(StorageClientInfo *pClientInfo, \
 	const int start_time, const int64_t file_size, const int crc32, \
 	const char *szFormattedExt, char *filename, \
@@ -2767,7 +2767,7 @@ static int storage_trunk_do_create_link(struct fast_task_info *pTask, \
 
 	file_offset = TRUNK_FILE_START_OFFSET( \
 			pFileContext->extra_info.upload.trunk_info);
-	trunk_get_full_filename(&(pFileContext->extra_info.upload.trunk_info), 
+	trunk_get_full_filename(&(pFileContext->extra_info.upload.trunk_info),
 			pFileContext->filename, sizeof(pFileContext->filename));
 	pFileContext->extra_info.upload.before_open_callback = \
 				before_open_callback;
@@ -3187,7 +3187,7 @@ static int storage_do_set_metadata(struct fast_task_info *pTask)
 /**
 8 bytes: filename length
 8 bytes: meta data size
-1 bytes: operation flag, 
+1 bytes: operation flag,
      'O' for overwrite all old metadata
      'M' for merge, insert when the meta item not exist, otherwise update it
 FDFS_GROUP_NAME_MAX_LEN bytes: group_name
@@ -3567,7 +3567,7 @@ static int storage_server_query_file_info(struct fast_task_info *pTask)
 			logError("file: "__FILE__", line: %d, " \
 				"client ip:%s, call readlink file %s fail, " \
 				"errno: %d, error info: %s", \
-				__LINE__, pTask->client_ip, true_filename, 
+				__LINE__, pTask->client_ip, true_filename,
 				result, STRERROR(result));
 			}
 			return result;
@@ -3838,7 +3838,7 @@ static int storage_server_trunk_get_binlog_size(struct fast_task_info *pTask)
 			"cmd=%d, client ip: %s, " \
 			"stat trunk binlog file: %s fail, " \
 			"errno: %d, error info: %s", \
-			 __LINE__, pHeader->cmd, pTask->client_ip, 
+			 __LINE__, pHeader->cmd, pTask->client_ip,
 			binlog_filename, errno, STRERROR(errno));
 		return errno != 0 ? errno : ENOENT;
 	}
@@ -4145,7 +4145,7 @@ static int storage_server_fetch_one_path_binlog_dealer( \
 		}
 		else
 		{
-			if (record.op_type == STORAGE_OP_TYPE_SOURCE_CREATE_LINK 
+			if (record.op_type == STORAGE_OP_TYPE_SOURCE_CREATE_LINK
 		 	|| record.op_type == STORAGE_OP_TYPE_REPLICA_CREATE_LINK)
 			{
 				logWarning("file: "__FILE__", line: %d, " \
@@ -4307,7 +4307,7 @@ static int storage_server_do_fetch_one_path_binlog( \
 	pFileContext->op = FDFS_STORAGE_FILE_OP_READ;
 	pFileContext->dio_thread_index = storage_dio_get_thread_index( \
 		pTask, store_path_index, pFileContext->op);
-	pFileContext->extra_info.upload.trunk_info.path.store_path_index = 
+	pFileContext->extra_info.upload.trunk_info.path.store_path_index =
 				store_path_index;
 	pClientInfo->extra_arg = pReader;
 
@@ -4382,7 +4382,7 @@ static int storage_server_fetch_one_path_binlog(struct fast_task_info *pTask)
 
 /**
 1 byte: store path index
-8 bytes: file size 
+8 bytes: file size
 FDFS_FILE_EXT_NAME_MAX_LEN bytes: file ext name, do not include dot (.)
 file size bytes: file content
 **/
@@ -4406,7 +4406,7 @@ static int storage_upload_file(struct fast_task_info *pTask, bool bAppenderFile)
 	pFileContext =  &(pClientInfo->file_context);
 	nInPackLen = pClientInfo->total_length - sizeof(TrackerHeader);
 
-	if (nInPackLen < 1 + FDFS_PROTO_PKG_LEN_SIZE + 
+	if (nInPackLen < 1 + FDFS_PROTO_PKG_LEN_SIZE +
 			FDFS_FILE_EXT_NAME_MAX_LEN)
 	{
 		logError("file: "__FILE__", line: %d, " \
@@ -5596,7 +5596,7 @@ static int storage_sync_copy_file(struct fast_task_info *pTask, \
 		pFileContext->crc32 = trunkHeader.crc32;
 		pFileContext->extra_info.upload.start_time = trunkHeader.mtime;
        		snprintf(pFileContext->extra_info.upload.formatted_ext_name, \
-		sizeof(pFileContext->extra_info.upload.formatted_ext_name), 
+		sizeof(pFileContext->extra_info.upload.formatted_ext_name),
 			"%s", trunkHeader.formatted_ext_name);
 
 		clean_func = dio_trunk_write_finish_clean_up;
@@ -5684,7 +5684,7 @@ static int storage_sync_copy_file(struct fast_task_info *pTask, \
 		pFileContext->extra_info.upload.before_open_callback = NULL;
 		pFileContext->extra_info.upload.before_close_callback = NULL;
 	}
-	
+
 	pFileContext->calc_crc32 = false;
 	pFileContext->calc_file_hash = false;
 	strcpy(pFileContext->fname2log, filename);
@@ -5706,7 +5706,7 @@ static int storage_sync_copy_file(struct fast_task_info *pTask, \
 /**
 8 bytes: filename bytes
 8 bytes: start offset
-8 bytes: append bytes 
+8 bytes: append bytes
 4 bytes: source op timestamp
 FDFS_GROUP_NAME_MAX_LEN bytes: group_name
 filename bytes : filename
@@ -5932,7 +5932,7 @@ static int storage_sync_append_file(struct fast_task_info *pTask)
 /**
 8 bytes: filename bytes
 8 bytes: start offset
-8 bytes: append bytes 
+8 bytes: append bytes
 4 bytes: source op timestamp
 FDFS_GROUP_NAME_MAX_LEN bytes: group_name
 filename bytes : filename
@@ -6780,6 +6780,13 @@ Header
 FDFS_GROUP_NAME_MAX_LEN bytes: group_name
 filename
 **/
+/**
+header:10 字节数组
+offset:8  字节数组
+download:8 字节数组
+group: 16字节数组
+filename:剩下的字节数组
+*/
 static int storage_server_download_file(struct fast_task_info *pTask)
 {
 	StorageClientInfo *pClientInfo;
@@ -6802,8 +6809,11 @@ static int storage_server_download_file(struct fast_task_info *pTask)
 	pClientInfo = (StorageClientInfo *)pTask->arg;
 	pFileContext =  &(pClientInfo->file_context);
 	//减去trackerheader的长度，得到数据包长度
+	//sizeof(TrackerHeader)的长度为10
+	//8+8+16+filename的字节数组长度
 	nInPackLen = pClientInfo->total_length - sizeof(TrackerHeader);
 	//包中实际的数据长度错误
+	//说明没有文件名
 	if (nInPackLen <= 16 + FDFS_GROUP_NAME_MAX_LEN)
 	{
 		logError("file: "__FILE__", line: %d, " \
@@ -6871,7 +6881,7 @@ static int storage_server_download_file(struct fast_task_info *pTask)
 	filename = p;
 	filename_len = nInPackLen - (16 + FDFS_GROUP_NAME_MAX_LEN);
 	*(filename + filename_len) = '\0';
-	
+
 	STORAGE_ACCESS_STRCPY_FNAME2LOG(filename, filename_len, \
 			pClientInfo);
 	//到此，文件名和下载量都已经知道了
@@ -7937,7 +7947,9 @@ int fdfs_stat_file_sync_func(void *args)
 
 int storage_deal_task(struct fast_task_info *pTask)
 {
+    //头信息
 	TrackerHeader *pHeader;
+	//存储服务器信息
 	StorageClientInfo *pClientInfo;
 	int result;
 
@@ -7949,6 +7961,7 @@ int storage_deal_task(struct fast_task_info *pTask)
 		//下载文件
 		case STORAGE_PROTO_CMD_DOWNLOAD_FILE:
 			ACCESS_LOG_INIT_FIELDS();
+			//下载文件的处理类
 			result = storage_server_download_file(pTask);
 			STORAGE_ACCESS_LOG(pTask, \
 				ACCESS_LOG_ACTION_DOWNLOAD_FILE, \
@@ -7958,6 +7971,7 @@ int storage_deal_task(struct fast_task_info *pTask)
 		case STORAGE_PROTO_CMD_GET_METADATA:
 			ACCESS_LOG_INIT_FIELDS();
 			result = storage_server_get_metadata(pTask);
+
 			STORAGE_ACCESS_LOG(pTask, \
 				ACCESS_LOG_ACTION_GET_METADATA, \
 				result);
